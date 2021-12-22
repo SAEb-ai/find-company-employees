@@ -23,4 +23,34 @@ var T = new Twit({
 
 const MessagingResponse = require("twilio").twiml.MessagingResponse;
 
+app.get("/", (req, res) => {
+    res.setHeader('Content-type','text/html');
+    res.send("<h1>Hello<h1>");
+})
+
+//Triggered when the user sends the company name from whatsapp
+app.post("/receive", (req, res) => {
+    var company_name = req.body.Body;
+    console.log(company_name);
+    var message="";
+    T.get('friends/list', { screen_name: company_name }, function getData(err, data, response) {
+      data.users.map((user) => {
+        if (user.description.includes(company_name) || user.description.includes("@"+company_name)) {
+          message+="@"+user.screen_name+"\n";
+          console.log(message);
+        }
+      })
+      if (data['next_cursor'] > 0) T.get('friends/list', { screen_name: company_name, cursor: data['next_cursor'] }, getData);
+      else {
+        const twiml = new MessagingResponse();
+          twiml.message(`${message}`);
+          res.writeHead(200, {"Content-type": "text/xml"});
+          res.end(twiml.toString());
+      }
+  
+    })
+})
+
+app.listen(port, () => console.log(`Server started listening at port ${port}`));
+
 
