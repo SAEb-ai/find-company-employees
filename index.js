@@ -49,7 +49,7 @@ app.post("/receive", (req, res) => {
       }
   
     })
-})
+});
 
 app.listen(port, () => console.log(`Server started listening at port ${port}`));
 
