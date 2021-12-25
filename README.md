@@ -10,7 +10,7 @@ Connect to the whatsapp sandbox by sending a WhatsApp message from your device t
 
 #### A video illustration
 
-https://user-images.githubusercontent.com/69013647/145719755-5a34653e-9b18-4fe6-8a6b-bfd5072ec602.mp4
+https://user-images.githubusercontent.com/69013647/147380310-0f6011e1-e366-4e12-90f7-ccafff3bcc30.mp4
 
 ### 🧑🏻‍💻 Local Development
 
