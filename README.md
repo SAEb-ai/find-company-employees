@@ -21,7 +21,7 @@ https://user-images.githubusercontent.com/69013647/147380310-0f6011e1-e366-4e12-
   ``` 
 3. Set working directory to the root directory of the project.
   ```sh
-  cd find-company-employees
+  cd find-remote-work-employees
   ```
 4. Install all the required packages and dependencies.
   ```node
