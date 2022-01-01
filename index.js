@@ -1,10 +1,12 @@
 require('dotenv').config();
 const express = require("express");
+const process = require('process');
 var Twit = require('twit');
+const fs = require('fs')
 const app = express();
 const port = process.env.PORT || 3000;
 
-//express.json() --> It parses incoming requests with JSON payloads and is based on body-parser.
+//Middlewares
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
@@ -23,34 +25,72 @@ var T = new Twit({
 
 const MessagingResponse = require("twilio").twiml.MessagingResponse;
 
+//HomePage
 app.get("/", (req, res) => {
-    res.setHeader('Content-type','text/html');
-    res.send("<h1>Hello<h1>");
+  res.setHeader('Content-type', 'text/html');
+  res.send("<h1>Hello<h1>");
 })
 
 //Triggered when the user sends the company name from whatsapp
 app.post("/receive", (req, res) => {
-    var company_name = req.body.Body;
-    console.log(company_name);
-    var message="";
-    T.get('friends/list', { screen_name: company_name }, function getData(err, data, response) {
-      data.users.map((user) => {
-        if (user.description.includes(company_name) || user.description.includes("@"+company_name)) {
-          message+="@"+user.screen_name+"\n";
-          console.log(message);
-        }
-      })
-      if (data['next_cursor'] > 0) T.get('friends/list', { screen_name: company_name, cursor: data['next_cursor'] }, getData);
-      else {
-        const twiml = new MessagingResponse();
-          twiml.message(`${message}`);
-          res.writeHead(200, {"Content-type": "text/xml"});
-          res.end(twiml.toString());
+  var company_name = req.body.Body;
+  var message = "";
+  // fs.truncate('test.txt', 0, function () { console.log('done') });
+  T.get('friends/list', { screen_name: company_name }, function getData(err, data, response) {
+    data.users.map((user) => {
+      if (user.description.includes(company_name) || user.description.includes("@" + company_name)) {
+        message += "@" + user.screen_name + "\n";
+        fs.appendFile('test.txt', "@" + user.screen_name + "\n", err => {
+          if (err) {
+            console.error(err)
+          }
+          //file written successfully
+        })
       }
-  
     })
-});
+    if (data['next_cursor'] > 0) T.get('friends/list', { screen_name: company_name, cursor: data['next_cursor'] }, getData);
+    else {
+      const twiml = new MessagingResponse();
+      twiml.message(`${message}`);
+      res.writeHead(200, { "Content-type": "text/xml" });
+      res.end(twiml.toString());
+      const path = './test.txt'
+      try {
+        fs.unlinkSync(path);
+        //file removed
+      } catch (err) {
+        console.error(err)
+      }
+    }
+
+  })
+
+  // This is just a hack. When the twitter api rate limit is reached the execution
+  // reaches here and sends whatever information it has captured till now to whatsapp.
+  process.on('uncaughtException', (error) => {
+    if (fs.existsSync('test.txt')) {
+      const data = fs.readFileSync('test.txt', 'utf8')
+      console.log(data)
+      const twiml = new MessagingResponse();
+      twiml.message(`${data}`);
+      res.writeHead(200, { "Content-type": "text/xml" });
+      res.end(twiml.toString());
+      const path = './test.txt'
+      try {
+        fs.unlinkSync(path)
+        //file removed
+      } catch (err) {
+        throw new Error(err);
+      }
+      throw new Error("API Rate Limit Exceeded")
+    } else if(!fs.existsSync('test.txt')) {
+      const twiml = new MessagingResponse();
+      twiml.message("Twitter API Rate limit Exceeded. Try after 10-15 minutes");
+      res.writeHead(200, { "Content-type": "text/xml" });
+      res.end(twiml.toString());
+      throw new Error("API Rate Limit Exceeded")
+    }
+  });
+})
 
 app.listen(port, () => console.log(`Server started listening at port ${port}`));
-
-
