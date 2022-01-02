@@ -84,17 +84,17 @@ app.post("/receive", (req, res) => {
       const twiml = new MessagingResponse();
       twiml.message(`${message}` + "Now Please make another request after 15-20 minutes in order to get fruitful results");
       counter = 1;
+      res.status(200).contentType("text/xml").end(twiml.toString());
       server.close((err) => {
         console.log('server closed')
         process.exit(err ? 1 : 0)
       })
-      res.status(200).contentType("text/xml").end(twiml.toString());
     }
   })
 
   // This is just a hack. When the twitter api rate limit is reached the execution
   // reaches here and sends whatever information it has captured till now to whatsapp.
-  process.on('uncaughtException', (error) => {
+  process.on('unhandledRejection', (error) => {
     if (fs.existsSync('test.txt')) {
       const data = fs.readFileSync('test.txt', 'utf8')
       console.log(data)
@@ -107,11 +107,11 @@ app.post("/receive", (req, res) => {
       }
       const twiml = new MessagingResponse();
       twiml.message(`${data}` + "Now Please make another request after 15-20 minutes in order to get fruitful results");
+      res.status(201).contentType("text/xml").end(twiml.toString());
       server.close((err) => {
         console.log('server closed')
         process.exit(err ? 1 : 0)
       })
-      res.status(201).contentType("text/xml").end(twiml.toString());
     } else if (!fs.existsSync('test.txt') && counter != 1) {
       const twiml = new MessagingResponse();
       twiml.message("Twitter API Rate limit Exceeded. Try after 10-15 minutes");
@@ -120,6 +120,10 @@ app.post("/receive", (req, res) => {
         process.exit(err ? 1 : 0)
       })
       res.status(201).contentType("text/xml").end(twiml.toString());
+      server.close((err) => {
+        console.log('server closed')
+        process.exit(err ? 1 : 0)
+      })
     }
   });
 })
