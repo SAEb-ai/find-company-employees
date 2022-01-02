@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require("express");
 const process = require('process');
+const { exec } = require("child_process");
 var Twit = require('twit');
 const fs = require('fs')
 const app = express();
@@ -33,10 +34,33 @@ app.get("/", (req, res) => {
 
 //Triggered when the user sends the company name from whatsapp
 app.post("/receive", (req, res) => {
+
   var company_name = req.body.Body;
   var message = "";
-  // fs.truncate('test.txt', 0, function () { console.log('done') });
-  T.get('friends/list', { screen_name: company_name }, function getData(err, data, response) {
+  var counter = 0;
+
+  // It restarts the server that was closed after the messasge was sent to whatsapp.
+  // This is done to make the communication better. Howerver, this creates an issue when
+  // when the first post request is made because the server was on at that time. Although, 
+  // it does not create any issue in our overall code execution, we are still trying to 
+  // find out the solution to make this better.
+  exec("nodemon index.js", (error, stdout, stderr) => {
+    if (error) {
+      console.log(`error: ${error.message}`);
+      return;
+    }
+    if (stderr) {
+      console.log(`stderr: ${stderr}`);
+      return;
+    }
+    console.log(`stdout: ${stdout}`);
+  });
+
+  // Empty the file
+  fs.truncate('test.txt', 0, function () { console.log('done') });
+
+  //Fetch the follwers of the specified company
+  T.get('friends/list', { screen_name: company_name }, async function getData(err, data, response) {
     data.users.map((user) => {
       if (user.description.includes(company_name) || user.description.includes("@" + company_name)) {
         message += "@" + user.screen_name + "\n";
@@ -50,10 +74,6 @@ app.post("/receive", (req, res) => {
     })
     if (data['next_cursor'] > 0) T.get('friends/list', { screen_name: company_name, cursor: data['next_cursor'] }, getData);
     else {
-      const twiml = new MessagingResponse();
-      twiml.message(`${message}`);
-      res.writeHead(200, { "Content-type": "text/xml" });
-      res.end(twiml.toString());
       const path = './test.txt'
       try {
         fs.unlinkSync(path);
@@ -61,8 +81,15 @@ app.post("/receive", (req, res) => {
       } catch (err) {
         console.error(err)
       }
+      const twiml = new MessagingResponse();
+      twiml.message(`${message}` + "Now Please make another request after 15-20 minutes in order to get fruitful results");
+      counter = 1;
+      server.close((err) => {
+        console.log('server closed')
+        process.exit(err ? 1 : 0)
+      })
+      res.status(200).contentType("text/xml").end(twiml.toString());
     }
-
   })
 
   // This is just a hack. When the twitter api rate limit is reached the execution
@@ -71,10 +98,6 @@ app.post("/receive", (req, res) => {
     if (fs.existsSync('test.txt')) {
       const data = fs.readFileSync('test.txt', 'utf8')
       console.log(data)
-      const twiml = new MessagingResponse();
-      twiml.message(`${data}`);
-      res.writeHead(200, { "Content-type": "text/xml" });
-      res.end(twiml.toString());
       const path = './test.txt'
       try {
         fs.unlinkSync(path)
@@ -82,15 +105,23 @@ app.post("/receive", (req, res) => {
       } catch (err) {
         throw new Error(err);
       }
-      throw new Error("API Rate Limit Exceeded")
-    } else if(!fs.existsSync('test.txt')) {
+      const twiml = new MessagingResponse();
+      twiml.message(`${data}` + "Now Please make another request after 15-20 minutes in order to get fruitful results");
+      server.close((err) => {
+        console.log('server closed')
+        process.exit(err ? 1 : 0)
+      })
+      res.status(201).contentType("text/xml").end(twiml.toString());
+    } else if (!fs.existsSync('test.txt') && counter != 1) {
       const twiml = new MessagingResponse();
       twiml.message("Twitter API Rate limit Exceeded. Try after 10-15 minutes");
-      res.writeHead(200, { "Content-type": "text/xml" });
-      res.end(twiml.toString());
-      throw new Error("API Rate Limit Exceeded")
+      server.close((err) => {
+        console.log('server closed')
+        process.exit(err ? 1 : 0)
+      })
+      res.status(201).contentType("text/xml").end(twiml.toString());
     }
   });
 })
 
-app.listen(port, () => console.log(`Server started listening at port ${port}`));
+const server = app.listen(port, () => console.log(`Server started listening at port ${port}`));
